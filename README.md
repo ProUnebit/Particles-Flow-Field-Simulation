@@ -1,2 +1,2 @@
-# Fluid-Simulation
+# Fluid Simulation Scene
 PixiJS, WebGL, GLSL
