@@ -4,15 +4,27 @@ import { ParticleSystem } from "./ParticleSystem.js";
 // Инициализация Pixi v8
 const app = new Application();
 
-await app.init({
-    width: window.innerWidth,
-    height: window.innerHeight,
-    backgroundColor: 0x000000,
-    resolution: window.devicePixelRatio || 1,
-    autoDensity: true,
-    antialias: false,
-    preference: "webgl",
-});
+// await app.init({
+//     width: window.innerWidth,
+//     height: window.innerHeight,
+//     backgroundColor: 0x000000,
+//     resolution: window.devicePixelRatio || 1,
+//     autoDensity: true,
+//     antialias: false,
+//     preference: "webgl",
+// });
+
+(async () => {
+    await app.init({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        backgroundColor: 0x000000,
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true,
+        antialias: false,
+        preference: "webgl",
+    });
+})();
 
 document.querySelector("#canvas-container").appendChild(app.canvas);
 
