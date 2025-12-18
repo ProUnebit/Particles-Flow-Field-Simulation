@@ -211,6 +211,68 @@ export class FlowField {
                     2;
                 break;
 
+            case "wave":
+                // Волновой паттерн (синусоидальные волны)
+                // Две перпендикулярные волны создают интерференционный паттерн
+                const waveFreq = 0.01;
+                const waveSpeed = this.time * 200;
+
+                // Горизонтальная волна
+                const wave1 = Math.sin((y + waveSpeed) * waveFreq) * Math.PI;
+                // Вертикальная волна
+                const wave2 =
+                    Math.sin((x - waveSpeed * 0.7) * waveFreq) * Math.PI;
+
+                // Комбинируем волны + добавляем noise для органичности
+                angle =
+                    wave1 +
+                    wave2 +
+                    this.noise2D(
+                        x / this.scale,
+                        y / this.scale + this.time * 0.5
+                    ) *
+                        0.3;
+                break;
+
+            case "magnetic":
+                // Магнитное поле с двумя полюсами
+                const pole1X = this.width * 0.3;
+                const pole1Y = this.height * 0.5;
+                const pole2X = this.width * 0.7;
+                const pole2Y = this.height * 0.5;
+
+                // Вектор от первого полюса (притяжение)
+                const dx1 = x - pole1X;
+                const dy1 = y - pole1Y;
+                const dist1 = Math.sqrt(dx1 * dx1 + dy1 * dy1) + 1;
+                const angle1 = Math.atan2(dy1, dx1);
+                const force1 = 100 / dist1; // Обратно пропорционально расстоянию
+
+                // Вектор от второго полюса (отталкивание)
+                const dx2 = x - pole2X;
+                const dy2 = y - pole2Y;
+                const dist2 = Math.sqrt(dx2 * dx2 + dy2 * dy2) + 1;
+                const angle2 = Math.atan2(dy2, dx2);
+                const force2 = 100 / dist2;
+
+                // Комбинируем силы (полюс 1 притягивает, полюс 2 отталкивает)
+                const forceX =
+                    Math.cos(angle1) * force1 -
+                    Math.cos(angle2 + Math.PI) * force2;
+                const forceY =
+                    Math.sin(angle1) * force1 -
+                    Math.sin(angle2 + Math.PI) * force2;
+
+                angle = Math.atan2(forceY, forceX);
+
+                // Добавляем небольшой noise для турбулентности
+                angle +=
+                    this.noise2D(
+                        x / (this.scale * 2),
+                        y / (this.scale * 2) + this.time
+                    ) * 0.5;
+                break;
+
             default:
                 angle = 0;
         }
@@ -277,6 +339,12 @@ export class FlowField {
                 break;
             case "chaos":
                 this.timeSpeed = 0.001;
+                break;
+            case "wave":
+                this.timeSpeed = 0.0002;
+                break;
+            case "magnetic":
+                this.timeSpeed = 0.0003;
                 break;
             default:
                 this.timeSpeed = 0.0003;

@@ -6,9 +6,22 @@ export default defineConfig({
         open: true,
     },
     build: {
-        target: 'esnext',
+        target: "es2020",
+        outDir: "dist",
+        assetsDir: "assets",
+        sourcemap: false,
+        minify: "terser",
+        rollupOptions: {
+            output: {
+                format: "es", 
+                manualChunks: {
+                    pixi: ["pixi.js"],
+                },
+            },
+        },
     },
+    base: "./", 
     resolve: {
-        extensions: ['.js', '.ts']
-    }
+        extensions: [".js", ".ts"],
+    },
 });
