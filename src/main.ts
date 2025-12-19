@@ -1,7 +1,9 @@
 import { Application } from "pixi.js";
-import { ParticleSystem } from "./ParticleSystem.js";
+import { ParticleSystem } from "./core/ParticleSystem";
+import type { ModeConfig, FlowFieldMode } from "./types";
+import "./styles/main.css";
 
-(async () => {
+(async (): Promise<void> => {
     // Инициализация
     const app = new Application();
 
@@ -15,7 +17,9 @@ import { ParticleSystem } from "./ParticleSystem.js";
         preference: "webgl",
     });
 
-    document.querySelector("#canvas-container").appendChild(app.canvas);
+    document
+        .querySelector<HTMLDivElement>("#canvas-container")!
+        .appendChild(app.canvas);
 
     // Стартовые значения
     const INITIAL_PARTICLE_COUNT = 2500;
@@ -23,58 +27,63 @@ import { ParticleSystem } from "./ParticleSystem.js";
     const INITIAL_TRAIL = 0.88;
     const INITIAL_SCALE = 80;
 
-    // Создаём систему частиц с начальным количеством
+    // Создаём систему частиц
     const particleSystem = new ParticleSystem(app, INITIAL_PARTICLE_COUNT);
     particleSystem.speed = INITIAL_SPEED;
     particleSystem.trailAlpha = INITIAL_TRAIL;
     particleSystem.flowField.scale = INITIAL_SCALE;
 
-    // UI Controls
-    const particleSlider = document.getElementById("particles");
-    const speedSlider = document.getElementById("speed");
-    const trailSlider = document.getElementById("trail");
-    const scaleSlider = document.getElementById("scale");
-    const resetBtn = document.getElementById("reset");
-    const modeButtons = document.querySelectorAll(".mode-btn");
+    // UI Elements
+    const particleSlider = document.getElementById(
+        "particles"
+    ) as HTMLInputElement;
+    const speedSlider = document.getElementById("speed") as HTMLInputElement;
+    const trailSlider = document.getElementById("trail") as HTMLInputElement;
+    const scaleSlider = document.getElementById("scale") as HTMLInputElement;
+    const resetBtn = document.getElementById("reset") as HTMLButtonElement;
+    const modeButtons =
+        document.querySelectorAll<HTMLButtonElement>(".mode-btn");
 
     // Синхронизируем UI с начальными значениями
-    particleSlider.value = INITIAL_PARTICLE_COUNT;
-    document.getElementById("particle-value").textContent =
-        INITIAL_PARTICLE_COUNT;
+    particleSlider.value = INITIAL_PARTICLE_COUNT.toString();
+    document.getElementById("particle-value")!.textContent =
+        INITIAL_PARTICLE_COUNT.toString();
 
-    speedSlider.value = INITIAL_SPEED;
-    document.getElementById("speed-value").textContent =
+    speedSlider.value = INITIAL_SPEED.toString();
+    document.getElementById("speed-value")!.textContent =
         INITIAL_SPEED.toFixed(1);
 
-    trailSlider.value = INITIAL_TRAIL;
-    document.getElementById("trail-value").textContent =
+    trailSlider.value = INITIAL_TRAIL.toString();
+    document.getElementById("trail-value")!.textContent =
         INITIAL_TRAIL.toFixed(2);
 
-    scaleSlider.value = INITIAL_SCALE;
-    document.getElementById("scale-value").textContent = INITIAL_SCALE;
+    scaleSlider.value = INITIAL_SCALE.toString();
+    document.getElementById("scale-value")!.textContent =
+        INITIAL_SCALE.toString();
 
     // Обработка слайдеров
     particleSlider.addEventListener("input", (e) => {
-        const value = parseInt(e.target.value);
-        document.getElementById("particle-value").textContent = value;
+        const value = parseInt((e.target as HTMLInputElement).value);
+        document.getElementById("particle-value")!.textContent =
+            value.toString();
         particleSystem.setParticleCount(value);
     });
 
     speedSlider.addEventListener("input", (e) => {
-        const value = parseFloat(e.target.value);
-        document.getElementById("speed-value").textContent = value.toFixed(1);
+        const value = parseFloat((e.target as HTMLInputElement).value);
+        document.getElementById("speed-value")!.textContent = value.toFixed(1);
         particleSystem.speed = value;
     });
 
     trailSlider.addEventListener("input", (e) => {
-        const value = parseFloat(e.target.value);
-        document.getElementById("trail-value").textContent = value.toFixed(2);
+        const value = parseFloat((e.target as HTMLInputElement).value);
+        document.getElementById("trail-value")!.textContent = value.toFixed(2);
         particleSystem.trailAlpha = value;
     });
 
     scaleSlider.addEventListener("input", (e) => {
-        const value = parseFloat(e.target.value);
-        document.getElementById("scale-value").textContent = value;
+        const value = parseFloat((e.target as HTMLInputElement).value);
+        document.getElementById("scale-value")!.textContent = value.toString();
         particleSystem.flowField.scale = value;
     });
 
@@ -82,8 +91,8 @@ import { ParticleSystem } from "./ParticleSystem.js";
         particleSystem.reset();
     });
 
-    // Обработка режимов
-    const modeConfig = {
+    // Конфигурация режимов
+    const modeConfig: Record<FlowFieldMode, ModeConfig> = {
         chaos: { name: "Chaos Field", icon: "⚡" },
         flow: { name: "Flow Field", icon: "🖇" },
         galaxy: { name: "Galaxy Field", icon: "🌌" },
@@ -92,21 +101,22 @@ import { ParticleSystem } from "./ParticleSystem.js";
         magnetic: { name: "Magnetic Field", icon: "🧲" },
     };
 
-    const updateModeTitle = (mode) => {
+    const updateModeTitle = (mode: FlowFieldMode): void => {
         const config = modeConfig[mode];
-        document.querySelector(".mode-icon").textContent = config.icon;
-        document.getElementById("mode-text").textContent = config.name;
+        document.querySelector(".mode-icon")!.textContent = config.icon;
+        document.getElementById("mode-text")!.textContent = config.name;
     };
 
-    // Устанавливаем начальный режим (chaos)
+    // Устанавливаем начальный режим
     particleSystem.setMode("chaos");
     updateModeTitle("chaos");
 
+    // Обработка режимов
     modeButtons.forEach((btn) => {
         btn.addEventListener("click", () => {
             modeButtons.forEach((b) => b.classList.remove("active"));
             btn.classList.add("active");
-            const mode = btn.dataset.mode;
+            const mode = btn.dataset.mode as FlowFieldMode;
             particleSystem.setMode(mode);
             updateModeTitle(mode);
         });
@@ -115,28 +125,22 @@ import { ParticleSystem } from "./ParticleSystem.js";
     // Обработка мыши
     let mouseX = app.screen.width / 2;
     let mouseY = app.screen.height / 2;
-    let isMouseDown = false;
+    const cursor = document.getElementById("cursor") as HTMLDivElement;
 
-    const cursor = document.getElementById("cursor");
-
-    app.canvas.addEventListener("mousemove", (e) => {
+    app.canvas.addEventListener("mousemove", (e: MouseEvent) => {
         mouseX = e.clientX;
         mouseY = e.clientY;
-
-        cursor.style.left = mouseX + "px";
-        cursor.style.top = mouseY + "px";
-
+        cursor.style.left = `${mouseX}px`;
+        cursor.style.top = `${mouseY}px`;
         particleSystem.setMousePosition(mouseX, mouseY);
     });
 
     app.canvas.addEventListener("mousedown", () => {
-        isMouseDown = true;
         cursor.classList.add("active");
         particleSystem.setMousePressed(true);
     });
 
     app.canvas.addEventListener("mouseup", () => {
-        isMouseDown = false;
         cursor.classList.remove("active");
         particleSystem.setMousePressed(false);
     });
@@ -150,27 +154,21 @@ import { ParticleSystem } from "./ParticleSystem.js";
     });
 
     // Touch support
-    app.canvas.addEventListener("touchstart", (e) => {
+    app.canvas.addEventListener("touchstart", (e: TouchEvent) => {
         e.preventDefault();
         const touch = e.touches[0];
-        mouseX = touch.clientX;
-        mouseY = touch.clientY;
-        isMouseDown = true;
-        particleSystem.setMousePosition(mouseX, mouseY);
+        particleSystem.setMousePosition(touch.clientX, touch.clientY);
         particleSystem.setMousePressed(true);
     });
 
-    app.canvas.addEventListener("touchmove", (e) => {
+    app.canvas.addEventListener("touchmove", (e: TouchEvent) => {
         e.preventDefault();
         const touch = e.touches[0];
-        mouseX = touch.clientX;
-        mouseY = touch.clientY;
-        particleSystem.setMousePosition(mouseX, mouseY);
+        particleSystem.setMousePosition(touch.clientX, touch.clientY);
     });
 
-    app.canvas.addEventListener("touchend", (e) => {
+    app.canvas.addEventListener("touchend", (e: TouchEvent) => {
         e.preventDefault();
-        isMouseDown = false;
         particleSystem.setMousePressed(false);
     });
 
@@ -181,11 +179,10 @@ import { ParticleSystem } from "./ParticleSystem.js";
     app.ticker.add(() => {
         particleSystem.update();
 
-        // Update FPS
         frames++;
         const currentTime = performance.now();
         if (currentTime >= lastTime + 1000) {
-            document.getElementById("fps").textContent = frames;
+            document.getElementById("fps")!.textContent = frames.toString();
             frames = 0;
             lastTime = currentTime;
         }

@@ -1,3 +1,5 @@
+import type { Vector2D, HistoryPoint } from "../types";
+
 /**
  * Particle - одна частица в системе
  *
@@ -7,40 +9,33 @@
  * - Имеет историю позиций для trail эффекта
  * - Следует векторному полю
  */
-
 export class Particle {
-    constructor(x, y, width, height) {
+    public x: number;
+    public y: number;
+    public vx: number = 0;
+    public vy: number = 0;
+    public width: number;
+    public height: number;
+    public maxSpeed: number = 2;
+    public hue: number;
+    public history: HistoryPoint[] = [];
+    public maxHistory: number = 20;
+
+    constructor(x: number, y: number, width: number, height: number) {
         // Добавляем небольшой отступ от краёв при инициализации
         const padding = 50;
         this.x = padding + Math.random() * (width - padding * 2);
         this.y = padding + Math.random() * (height - padding * 2);
         this.width = width;
         this.height = height;
-
-        // Скорость частицы
-        this.vx = 0;
-        this.vy = 0;
-
-        // Максимальная скорость (для ограничения)
-        this.maxSpeed = 2;
-
-        // Цвет частицы (будет зависеть от скорости)
         this.hue = Math.random() * 360;
-
-        // История позиций для trail
-        this.history = [];
-        this.maxHistory = 20; // Длина следа
     }
 
     /**
      * Обновление частицы
-     *
-     * @param {Object} force - вектор силы из flow field {x, y}
-     * @param {number} speed - множитель скорости
      */
-    update(force, speed) {
+    public update(force: Vector2D, speed: number): void {
         // Применяем силу к скорости (F = ma, у нас m = 1)
-        // Acceleration = Force
         this.vx += force.x * 0.3;
         this.vy += force.y * 0.3;
 
@@ -61,30 +56,41 @@ export class Particle {
         this.x += this.vx * speed;
         this.y += this.vy * speed;
 
-        // Отскок от границ вместо wrap-around (более стабильно)
-        let bounced = false;
-        const damping = 0.7; // Потеря энергии при отскоке
-        const margin = 2; // Небольшой отступ от края
+        // Отскок от границ
+        this.handleBoundaries();
 
-        // Проверяем X границы
+        // Обновляем цвет на основе скорости
+        const speedRatio = currentSpeed / this.maxSpeed;
+        this.hue = speedRatio * 120; // От 0 (красный) до 120 (зелёный)
+    }
+
+    /**
+     * Обработка границ (отскок)
+     */
+    private handleBoundaries(): void {
+        let bounced = false;
+        const damping = 0.7;
+        const margin = 2;
+
+        // X границы
         if (this.x < margin) {
             this.x = margin;
-            this.vx = Math.abs(this.vx) * damping; // Отскок вправо
+            this.vx = Math.abs(this.vx) * damping;
             bounced = true;
         } else if (this.x > this.width - margin) {
             this.x = this.width - margin;
-            this.vx = -Math.abs(this.vx) * damping; // Отскок влево
+            this.vx = -Math.abs(this.vx) * damping;
             bounced = true;
         }
 
-        // Проверяем Y границы
+        // Y границы
         if (this.y < margin) {
             this.y = margin;
-            this.vy = Math.abs(this.vy) * damping; // Отскок вниз
+            this.vy = Math.abs(this.vy) * damping;
             bounced = true;
         } else if (this.y > this.height - margin) {
             this.y = this.height - margin;
-            this.vy = -Math.abs(this.vy) * damping; // Отскок вверх
+            this.vy = -Math.abs(this.vy) * damping;
             bounced = true;
         }
 
@@ -92,16 +98,12 @@ export class Particle {
         if (bounced) {
             this.history = [];
         }
-
-        // Обновляем цвет на основе скорости (быстрые = яркие)
-        const speedRatio = currentSpeed / this.maxSpeed;
-        this.hue = speedRatio * 120; // От 0 (красный) до 120 (зелёный)
     }
 
     /**
      * Сброс частицы на случайную позицию
      */
-    reset(width, height) {
+    public reset(width: number, height: number): void {
         const padding = 50;
         this.x = padding + Math.random() * (width - padding * 2);
         this.y = padding + Math.random() * (height - padding * 2);

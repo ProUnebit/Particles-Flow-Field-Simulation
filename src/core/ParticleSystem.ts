@@ -1,49 +1,44 @@
 import { Graphics, RenderTexture, Sprite } from "pixi.js";
-import { Particle } from "./Particle.js";
-import { FlowField } from "./FlowField.js";
+import { Particle } from "./Particle";
+import { FlowField } from "./FlowField";
+import type { PixiApp, FlowFieldMode, Resizable, Updatable } from "../types";
 
 /**
  * ParticleSystem - управляет всеми частицами и их рендерингом
- *
- * Используем технику "trail rendering":
- * 1. Рисуем на RenderTexture с частичной прозрачностью
- * 2. Каждый кадр немного затемняем предыдущий (fade)
- * 3. Рисуем новые позиции частиц
- * 4. Получаем эффект следов (trails)
  */
+export class ParticleSystem implements Resizable, Updatable {
+    private app: PixiApp;
+    private width: number;
+    private height: number;
+    private particleCount: number;
+    private particles: Particle[] = [];
+    private graphics: Graphics;
+    private fadeOverlay: Graphics;
+    private trailTexture: RenderTexture;
+    private trailSprite: Sprite;
 
-export class ParticleSystem {
-    constructor(app, particleCount) {
+    public speed: number = 1.0;
+    public trailAlpha: number = 0.95;
+    public flowField: FlowField;
+
+    constructor(app: PixiApp, particleCount: number) {
         this.app = app;
         this.width = app.screen.width;
         this.height = app.screen.height;
-
-        // Параметры
         this.particleCount = particleCount;
-        this.speed = 1.0;
-        this.trailAlpha = 0.95; // Чем ближе к 1, тем длиннее следы
 
-        // Создаём flow field
         this.flowField = new FlowField(this.width, this.height, "flow");
-
-        // Создаём частицы
-        this.particles = [];
         this.initParticles();
 
-        // Создаём RenderTexture для trail эффекта
         this.trailTexture = RenderTexture.create({
             width: this.width,
             height: this.height,
         });
 
-        // Спрайт для отображения trail texture
         this.trailSprite = new Sprite(this.trailTexture);
         this.app.stage.addChild(this.trailSprite);
 
-        // Graphics для рисования частиц
         this.graphics = new Graphics();
-
-        // Fade overlay для создания trail эффекта
         this.fadeOverlay = new Graphics();
         this.updateFadeOverlay();
     }
@@ -51,7 +46,7 @@ export class ParticleSystem {
     /**
      * Инициализация частиц
      */
-    initParticles() {
+    private initParticles(): void {
         this.particles = [];
         for (let i = 0; i < this.particleCount; i++) {
             const x = Math.random() * this.width;
@@ -62,9 +57,9 @@ export class ParticleSystem {
     }
 
     /**
-     * Обновление fade overlay (для trail эффекта)
+     * Обновление fade overlay
      */
-    updateFadeOverlay() {
+    private updateFadeOverlay(): void {
         this.fadeOverlay.clear();
         this.fadeOverlay.rect(0, 0, this.width, this.height);
         this.fadeOverlay.fill({ color: 0x000000, alpha: 1 - this.trailAlpha });
@@ -73,11 +68,10 @@ export class ParticleSystem {
     /**
      * Главный цикл обновления
      */
-    update() {
-        // Обновляем flow field
+    public update(): void {
         this.flowField.update();
 
-        // Применяем fade к trail texture (создаём эффект затухания)
+        // Применяем fade
         this.app.renderer.render({
             container: this.fadeOverlay,
             target: this.trailTexture,
@@ -87,51 +81,8 @@ export class ParticleSystem {
         // Очищаем graphics
         this.graphics.clear();
 
-        // Обновляем и рисуем каждую частицу
-        for (let i = 0; i < this.particles.length; i++) {
-            const particle = this.particles[i];
-
-            // Получаем вектор силы из flow field
-            const force = this.flowField.getVector(particle.x, particle.y);
-
-            // Обновляем частицу
-            particle.update(force, this.speed);
-
-            // Рисуем частицу
-            // Цвет меняется от синего (медленные) к красному (быстрые)
-            const speed = Math.sqrt(
-                particle.vx * particle.vx + particle.vy * particle.vy
-            );
-            const speedRatio = speed / particle.maxSpeed;
-
-            // HSL в RGB для красивых цветов
-            const hue = speedRatio * 180; // 0-180 градусов
-            const color = this.hslToHex(hue, 100, 50);
-
-            // Рисуем точку
-            this.graphics.circle(particle.x, particle.y, 1.5);
-            this.graphics.fill({ color: color, alpha: 0.8 });
-
-            // Рисуем короткую линию в направлении движения
-            // НО только если расстояние < 50px (иначе это телепортация через границу!)
-            if (particle.history.length > 0) {
-                const prev = particle.history[particle.history.length - 1];
-                const dx = particle.x - prev.x;
-                const dy = particle.y - prev.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-
-                // Рисуем линию только если частица не телепортировалась
-                if (dist < 50) {
-                    this.graphics.moveTo(prev.x, prev.y);
-                    this.graphics.lineTo(particle.x, particle.y);
-                    this.graphics.stroke({
-                        width: 1,
-                        color: color,
-                        alpha: 0.3,
-                    });
-                }
-            }
-        }
+        // Обновляем и рисуем частицы
+        this.renderParticles();
 
         // Рендерим graphics на trail texture
         this.app.renderer.render({
@@ -142,9 +93,42 @@ export class ParticleSystem {
     }
 
     /**
-     * HSL в HEX для цветов
+     * Рендеринг частиц
      */
-    hslToHex(h, s, l) {
+    private renderParticles(): void {
+        for (const particle of this.particles) {
+            const force = this.flowField.getVector(particle.x, particle.y);
+            particle.update(force, this.speed);
+
+            const speed = Math.sqrt(particle.vx ** 2 + particle.vy ** 2);
+            const speedRatio = speed / particle.maxSpeed;
+            const hue = speedRatio * 180;
+            const color = this.hslToHex(hue, 100, 50);
+
+            // Рисуем точку
+            this.graphics.circle(particle.x, particle.y, 1.5);
+            this.graphics.fill({ color, alpha: 0.8 });
+
+            // Рисуем линию (trail)
+            if (particle.history.length > 0) {
+                const prev = particle.history[particle.history.length - 1];
+                const dx = particle.x - prev.x;
+                const dy = particle.y - prev.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < 50) {
+                    this.graphics.moveTo(prev.x, prev.y);
+                    this.graphics.lineTo(particle.x, particle.y);
+                    this.graphics.stroke({ width: 1, color, alpha: 0.3 });
+                }
+            }
+        }
+    }
+
+    /**
+     * HSL в HEX конвертация
+     */
+    private hslToHex(h: number, s: number, l: number): number {
         s /= 100;
         l /= 100;
 
@@ -156,27 +140,27 @@ export class ParticleSystem {
             g = 0,
             b = 0;
 
-        if (0 <= h && h < 60) {
+        if (h >= 0 && h < 60) {
             r = c;
             g = x;
             b = 0;
-        } else if (60 <= h && h < 120) {
+        } else if (h >= 60 && h < 120) {
             r = x;
             g = c;
             b = 0;
-        } else if (120 <= h && h < 180) {
+        } else if (h >= 120 && h < 180) {
             r = 0;
             g = c;
             b = x;
-        } else if (180 <= h && h < 240) {
+        } else if (h >= 180 && h < 240) {
             r = 0;
             g = x;
             b = c;
-        } else if (240 <= h && h < 300) {
+        } else if (h >= 240 && h < 300) {
             r = x;
             g = 0;
             b = c;
-        } else if (300 <= h && h < 360) {
+        } else if (h >= 300 && h < 360) {
             r = c;
             g = 0;
             b = x;
@@ -192,9 +176,8 @@ export class ParticleSystem {
     /**
      * Установить количество частиц
      */
-    setParticleCount(count) {
+    public setParticleCount(count: number): void {
         if (count > this.particleCount) {
-            // Добавляем новые частицы
             const toAdd = count - this.particleCount;
             for (let i = 0; i < toAdd; i++) {
                 const x = Math.random() * this.width;
@@ -204,7 +187,6 @@ export class ParticleSystem {
                 );
             }
         } else if (count < this.particleCount) {
-            // Удаляем лишние частицы
             this.particles = this.particles.slice(0, count);
         }
         this.particleCount = count;
@@ -214,8 +196,7 @@ export class ParticleSystem {
     /**
      * Сброс всех частиц
      */
-    reset() {
-        // Очищаем trail texture
+    public reset(): void {
         this.graphics.clear();
         this.graphics.rect(0, 0, this.width, this.height);
         this.graphics.fill(0x000000);
@@ -226,7 +207,6 @@ export class ParticleSystem {
         });
         this.graphics.clear();
 
-        // Переинициализируем частицы
         this.particles.forEach((p) => p.reset(this.width, this.height));
         console.log("🔄 Reset particles");
     }
@@ -234,7 +214,7 @@ export class ParticleSystem {
     /**
      * Установить режим
      */
-    setMode(mode) {
+    public setMode(mode: FlowFieldMode): void {
         this.flowField.setMode(mode);
         console.log(`🎨 Mode changed to: ${mode}`);
     }
@@ -242,39 +222,31 @@ export class ParticleSystem {
     /**
      * Установить позицию мыши
      */
-    setMousePosition(x, y) {
+    public setMousePosition(x: number, y: number): void {
         this.flowField.setMousePosition(x, y);
     }
 
     /**
      * Установить состояние мыши
      */
-    setMousePressed(pressed) {
+    public setMousePressed(pressed: boolean): void {
         this.flowField.setMousePressed(pressed);
     }
 
     /**
-     * Обработка resize
+     * Ресайз
      */
-    resize(width, height) {
+    public resize(width: number, height: number): void {
         this.width = width;
         this.height = height;
 
-        // Пересоздаём trail texture
         this.trailTexture.destroy();
-        this.trailTexture = RenderTexture.create({
-            width: width,
-            height: height,
-        });
+        this.trailTexture = RenderTexture.create({ width, height });
         this.trailSprite.texture = this.trailTexture;
 
-        // Обновляем fade overlay
         this.updateFadeOverlay();
-
-        // Обновляем flow field
         this.flowField.resize(width, height);
 
-        // Сбрасываем частицы
         this.particles.forEach((p) => {
             p.width = width;
             p.height = height;
